@@ -14,7 +14,7 @@ LINE_WIDTH = 2
 NODE_RADIUS = 4
 
 SHAPE = [[0, 1, 1, 1, 0],
-         [0, 0, 1, 0, 0],
+         [0, 1, 1, 1, 0],
          [0, 0, 1, 0, 0]]
 
 
@@ -22,24 +22,15 @@ def index_nodes(nodes):
     for y, row in enumerate(nodes):
         for x, node in enumerate(row):
             if node != 0:
-                node.array_pos.x = x
-                node.array_pos.y = y
+                node[0].array_pos.x = x
+                node[0].array_pos.y = y
 
 
-def make_connections(start_node, nodes):
-    adj_nodes = start_node.get_adj_nodes(nodes)
+def make_connections(node, nodes):
+    adj_nodes = node.get_adj_nodes(nodes)
 
-    print(len(adj_nodes), len(start_node.edge_connections))
-    print(start_node.pos.x, start_node.pos.y)
-    if len(adj_nodes) == len(start_node.edge_connections):
-        return False
-
-    for node in adj_nodes:
-        connection_id = pow(start_node.array_pos.x + node.array_pos.x, start_node.array_pos.y + node.array_pos.y)
-        if not node.check_edge_by_id(connection_id):
-            start_node.connect_with_node(node, connection_id)
-            if not make_connections(node, nodes):
-                break
+    for adj_node in adj_nodes:
+        node.connect_with_node(adj_node[0])
 
 
 class Box:
@@ -58,9 +49,9 @@ class Box:
             if first_row:
                 for index, cube in enumerate(row):
                     if cube == 1:
-                        node_row.append(Node(x_offset, y_offset))
+                        node_row.append([Node(x_offset, y_offset), False])
                         if row[index + 1] == 0:
-                                node_row.append(Node(x_offset + self.size, y_offset))
+                            node_row.append([Node(x_offset + self.size, y_offset), False])
                     else:
                         node_row.append(0)
                         node_row.append(0)
@@ -73,9 +64,9 @@ class Box:
             x_offset = 50
             for index, cube in enumerate(row):
                 if cube == 1:
-                    node_row.append(Node(x_offset, y_offset + self.size))
+                    node_row.append([Node(x_offset, y_offset + self.size), False])
                     if row[index + 1] == 0:
-                        node_row.append(Node(x_offset + self.size, y_offset + self.size))
+                        node_row.append([Node(x_offset + self.size, y_offset + self.size), False])
                 else:
                     node_row.append(0)
                     node_row.append(0)
@@ -93,26 +84,19 @@ class Box:
     def create_edges(self, nodes):
         list_of_edges = []
 
-        start_node = 0
-        break_all = False
-        for row in nodes:
-            for node in row:
+        # Henke-algorytmen
+        for row_index, row in enumerate(nodes):
+            for index, node in enumerate(row):
                 if node != 0:
-                    start_node = node
-                    break_all = True
-                    break
-
-            if break_all:
-                break
-        
-        make_connections(start_node, nodes)
+                    if not node[1]:
+                        make_connections(node[0], nodes)
+                        nodes[row_index][index][1] = True
 
         for row in nodes:
             for node in row:
                 if node != 0:
-                    for edge in node.edge_connections:
+                    for edge in node[0].edge_connections:
                         list_of_edges.append(edge)
-                        
 
         return list_of_edges
 
@@ -148,8 +132,12 @@ class Node:
                 if test_node != 0:
                     if value_y > -1 and value_x > -1:
                         adj_nodes.append(test_node)
-            except:
+            except IndexError:
                 pass
+
+        print(self.pos.x, self.pos.y, "main")
+        for node in adj_nodes:
+            print(node[0].pos.x, node[0].pos.y)
         
         return adj_nodes
 
@@ -160,8 +148,8 @@ class Node:
         
         return -1
 
-    def connect_with_node(self, node, id):
-        self.edge_connections.append(Edge(self, node, id))
+    def connect_with_node(self, node):
+        self.edge_connections.append(Edge(self, node))
 
     def check_edge_by_id(self, id):
         for edge in self.edge_connections:
@@ -172,10 +160,9 @@ class Node:
 
 
 class Edge:
-    def __init__(self, node1, node2, e_id):
+    def __init__(self, node1, node2):
         self.nodes = [node1, node2]
         self.ideal_length = self.get_length()
-        self.id = e_id
 
     def get_length(self):
         return math.sqrt(pow(self.nodes[1].pos.x - self.nodes[0].pos.x, 2) +
@@ -201,8 +188,9 @@ class Game:
         for i in self.nodes:
             for j in i:
                 if j != 0:
-                    j.draw(self.window)
-                
+                    j[0].draw(self.window)
+
+
 game = Game(shape=SHAPE)
 while 1:
     # Pygame event-system handling
